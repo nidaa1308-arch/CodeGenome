@@ -1,216 +1,162 @@
 #include <iostream>
-#include <fstream>
 #include <cstring>
-#include <stdexcept>
+#include <limits>
 #include "User.h"
 #include "Repository.h"
-#include "Commit.h"
 #include "Storage.h"
+#include "VersionManager.h"
+#include "SearchEngine.h"
+#include "Statistics.h"
+#include "HistoryManager.h"
 using namespace std;
 Repository repositories[20];
 int repositoryCount = 0;
-void saveRepository(Repository repo)
+VersionManager versions;
+void clearLine() { cin.ignore(numeric_limits<streamsize>::max(), '\n'); }
+int readNumber()
 {
-    ofstream file("repositories.txt", ios::app);
-    if(!file)
-        throw runtime_error("Unable to open repositories.txt");
-    file << "Repository: " << repo.getRepoName() << endl;
-    file << "Owner: " << repo.getOwner() << endl;
-    file << "--------------------------" << endl;
-    file.close();
+    int value;
+    if(!(cin >> value)) { cin.clear(); clearLine(); return -1; }
+    clearLine();
+    return value;
 }
-void createRepository(User* user)
+void save()
 {
-    char name[50];
-    if(!user->canCreateRepository())
-    {
-        cout << "\nYou do not have permission to create a repository.";
-        return;
-    }
-    cout << "\nEnter repository name: ";
-    cin >> name;
-    int i;
-    for(i = 0; i < repositoryCount; i++)
-    {
-        if(strcmp(repositories[i].getRepoName(), name) == 0)
-            throw runtime_error("Repository already exists.");
-    }
-    if(repositoryCount >= 20)
-        throw runtime_error("Repository limit reached.");
-    Repository repo(name, user->getUsername());
-    repositories[repositoryCount] = repo;
-    repositoryCount++;
-    saveRepository(repo);
-    cout << "\nRepository created successfully.";
+    if(!Storage::saveRepositories(repositories, repositoryCount))
+        cout << "\nWarning: could not save repositories.\n";
 }
 void showRepositories()
 {
-    int i;
-    cout << "\n\n========== REPOSITORIES ==========\n";
-    if(repositoryCount == 0)
-    {
-        cout << "No repositories found.";
-        return;
-    }
-    for(i = 0; i < repositoryCount; i++)
+    cout << "\n========== REPOSITORIES ==========\n";
+    for(int i = 0; i < repositoryCount; i++)
         cout << i + 1 << ". " << repositories[i].getRepoName() << " | Owner: " << repositories[i].getOwner() << endl;
+    if(repositoryCount == 0) cout << "No repositories.\n";
+}
+void createRepository(User* user)
+{
+    if(!user->canCreateRepository()) { cout << "\nPermission denied.\n"; return; }
+    if(repositoryCount >= 20) { cout << "\nRepository limit reached.\n"; return; }
+    char name[50];
+    cout << "Repository name: "; cin.getline(name, sizeof(name));
+    if(!name[0]) return;
+    for(int i = 0; i < repositoryCount; i++)
+        if(strcmp(repositories[i].getRepoName(), name) == 0) { cout << "Already exists.\n"; return; }
+    repositories[repositoryCount++] = Repository(name, user->getUsername());
+    save();
+    cout << "Repository created.\n";
 }
 void repositoryMenu(User* user)
 {
-    int choice,repoChoice;
-    char fileName[50],content[500],message[100];
-    if(repositoryCount == 0)
-    {
-        cout << "\nCreate a repository first.";
-        return;
-    }
     showRepositories();
-    cout << "\nSelect repository: ";
-    cin >> repoChoice;
-    if(repoChoice < 1 || repoChoice > repositoryCount)
-        throw runtime_error("Invalid repository number.");
-    Repository& repo = repositories[repoChoice - 1];
+    cout << "Repository number: ";
+    int index = readNumber() - 1;
+    if(index < 0 || index >= repositoryCount) { cout << "Invalid repository.\n"; return; }
+    Repository& repo = repositories[index];
+    bool canEdit = strcmp(repo.getOwner(), user->getUsername()) == 0;
+    // Collaborators can view but cannot modify repositories they do not own.
+    int choice;
     do
     {
-        cout << "\n\n========== REPOSITORY MENU ==========";
-        cout << "\n1. Add File";
-        cout << "\n2. Edit File";
-        cout << "\n3. Delete File";
-        cout << "\n4. Show Files";
-        cout << "\n5. Commit";
-        cout << "\n6. Back";
-        cout << "\nEnter choice: ";
-        cin >> choice;
+        cout << "\n========== " << repo.getRepoName() << " ==========\n";
+        cout << "1. Add file\n2. Edit file\n3. Delete file\n4. List files\n5. Commit file\n6. Version history\n7. Compare versions\n8. Restore version\n9. View file\n0. Back\nChoice: ";
+        choice = readNumber();
+        char name[50], content[500], message[100];
+        SourceFile* file = 0;
+        if(choice == 0) break;
+        if((choice == 1 || choice == 2 || choice == 3 || choice == 5 || choice == 8) && !canEdit)
+        { cout << "Only the repository owner can modify it.\n"; continue; }
         switch(choice)
         {
         case 1:
-            cout << "\nEnter file name: ";
-            cin >> fileName;
-            repo.addFile(fileName);
-            break;
+            cout << "File name: "; cin.getline(name, sizeof(name));
+            if(!name[0]) break;
+            repo.addFile(name); save(); break;
         case 2:
-        {
-            cout << "\nEnter file name: ";
-            cin >> fileName;
-            SourceFile* file = repo.findFile(fileName);
-            if(file == 0)
-                cout << "\nFile not found.";
-            else
-            {
-                cout << "\nEnter new content: ";
-                cin.ignore();
-                cin.getline(content,500);
-                file->editFile(content);
-                cout << "\nFile updated successfully.";
-            }
-            break;
-        }
+            cout << "File name: "; cin.getline(name, sizeof(name));
+            file = repo.findFile(name);
+            if(!file) { cout << "File not found.\n"; break; }
+            cout << "New content (one line): "; cin.getline(content, sizeof(content));
+            file->editFile(content); save(); cout << "Updated.\n"; break;
         case 3:
-            cout << "\nEnter file name: ";
-            cin >> fileName;
-            repo.deleteFile(fileName);
-            break;
-        case 4:
-            repo.showFiles();
-            break;
+            cout << "File name: "; cin.getline(name, sizeof(name));
+            repo.deleteFile(name); save(); break;
+        case 4: repo.showFiles(); break;
         case 5:
-        {
-            cout << "\nEnter file name: ";
-            cin >> fileName;
-            SourceFile* file = repo.findFile(fileName);
-            if(file == 0)
-                cout << "\nFile not found.";
-            else
-            {
-                cout << "\nEnter commit message: ";
-                cin.ignore();
-                cin.getline(message,100);
-                Commit commit(message,user->getUsername(),file->getFileName(),file->getContent());
-                commit.saveToFile();
-                cout << "\nCommit created successfully.";
-                commit.showCommit();
-            }
+            cout << "File name: "; cin.getline(name, sizeof(name));
+            file = repo.findFile(name);
+            if(!file) { cout << "File not found.\n"; break; }
+            cout << "Commit message: "; cin.getline(message, sizeof(message));
+            if(versions.commit(repo.getRepoName(), name, user->getUsername(), message, file->getContent()))
+                cout << "Commit saved.\n";
+            else cout << "Could not save commit.\n";
             break;
-        }
         case 6:
-            cout << "\nReturning to main menu.";
+            cout << "Filter by file (blank for all): "; cin.getline(name, sizeof(name));
+            versions.history(repo.getRepoName(), name); break;
+        case 7:
+        {
+            cout << "First commit ID: "; int a = readNumber();
+            cout << "Second commit ID: "; int b = readNumber();
+            const VersionRecord* va = versions.get(a);
+            if(!va || strcmp(va->repository, repo.getRepoName()) != 0 || !versions.compare(a, b))
+                cout << "Both commits must exist in this repository and refer to the same file.\n";
             break;
-        default:
-            cout << "\nInvalid choice.";
         }
-    }while(choice != 6);
+        case 8:
+        {
+            cout << "Commit ID to restore: "; int id = readNumber();
+            if(versions.restore(repo, id)) { save(); cout << "Version restored to working file. Commit again to record restoration.\n"; }
+            else cout << "Cannot restore this commit.\n";
+            break;
+        }
+        case 9:
+            cout << "File name: "; cin.getline(name, sizeof(name));
+            file = repo.findFile(name);
+            if(file) file->showFile(); else cout << "File not found.\n";
+            break;
+        default: cout << "Invalid choice.\n";
+        }
+    } while(choice != 0);
 }
 int main()
 {
     repositoryCount = Storage::loadRepositories(repositories, 20);
-    char adminUser[] = "admin",adminPass[] = "1234";
-    char studentUser[] = "student",studentPass[] = "1234";
-    char collabUser[] = "collab",collabPass[] = "1234";
-    Admin admin(adminUser,adminPass);
-    Student student(studentUser,studentPass);
-    Collaborator collaborator(collabUser,collabPass);
-    User* currentUser = 0;
-    char username[30],password[30];
-    cout << "====================================";
-    cout << "\n        CODEGENOME";
-    cout << "\n Mini Version Control System";
-    cout << "\n====================================";
-    cout << "\n\nUsername: ";
-    cin >> username;
-    cout << "Password: ";
-    cin >> password;
-    if(admin.login(username,password))
-        currentUser = &admin;
-    else if(student.login(username,password))
-        currentUser = &student;
-    else if(collaborator.login(username,password))
-        currentUser = &collaborator;
-    else
-    {
-        cout << "\nInvalid username or password.";
-        return 0;
-    }
-    cout << "\n\nLogin successful!";
-    cout << "\nRole: ";
-    currentUser->showRole();
+    char adminName[] = "admin", studentName[] = "student", collabName[] = "collab", pass[] = "1234";
+    Admin admin(adminName, pass);
+    Student student(studentName, pass);
+    Collaborator collab(collabName, pass);
+    User* current = 0;
+    char username[30], password[30];
+    cout << "====================================\n        CODEGENOME\n Mini Version Control System\n====================================\nUsername: ";
+    cin.getline(username, sizeof(username));
+    cout << "Password: "; cin.getline(password, sizeof(password));
+    if(admin.login(username, password)) current = &admin;
+    else if(student.login(username, password)) current = &student;
+    else if(collab.login(username, password)) current = &collab;
+    if(!current) { cout << "Invalid login.\n"; return 1; }
+    cout << "Welcome, " << current->getUsername() << " (";
+    current->showRole(); cout << ")\n";
     int choice;
     do
     {
-        try
+        cout << "\n========== MAIN MENU ==========\n1. Create repository\n2. List repositories\n3. Open repository\n4. Search\n5. Statistics\n6. Activity timeline\n0. Exit\nChoice: ";
+        choice = readNumber();
+        switch(choice)
         {
-            cout << "\n\n========== MAIN MENU ==========";
-            cout << "\n1. Create Repository";
-            cout << "\n2. Show Repositories";
-            cout << "\n3. Open Repository";
-            cout << "\n4. Total Commits";
-            cout << "\n5. Exit";
-            cout << "\nEnter choice: ";
-            cin >> choice;
-            switch(choice)
-            {
-            case 1:
-                createRepository(currentUser);
-                break;
-            case 2:
-                showRepositories();
-                break;
-            case 3:
-                repositoryMenu(currentUser);
-                break;
-            case 4:
-                cout << "\nTotal Commits: " << Commit::getTotalCommits();
-                break;
-            case 5:
-                cout << "\nThank you for using CodeGenome!";
-                break;
-            default:
-                cout << "\nInvalid choice.";
-            }
-        }
-        catch(exception& e)
+        case 1: createRepository(current); break;
+        case 2: showRepositories(); break;
+        case 3: repositoryMenu(current); break;
+        case 4:
         {
-            cout << "\nError: " << e.what();
+            char term[100]; cout << "Search term: "; cin.getline(term, sizeof(term));
+            if(term[0]) SearchEngine::search(repositories, repositoryCount, versions, term);
+            break;
         }
-    }while(choice != 5);
+        case 5: Statistics::show(repositories, repositoryCount, versions); break;
+        case 6: HistoryManager::timeline(versions); break;
+        case 0: save(); cout << "Goodbye.\n"; break;
+        default: cout << "Invalid choice.\n";
+        }
+    } while(choice != 0);
     return 0;
 }
