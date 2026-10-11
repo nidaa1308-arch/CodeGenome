@@ -2,100 +2,67 @@
 #include <cstring>
 #include "Repository.h"
 using namespace std;
-SourceFile::SourceFile(char name[], char data[])
+SourceFile::SourceFile(const char name[], const char data[])
 {
-    strcpy(fileName, name);
-    strcpy(content, data);
+    strncpy(fileName, name, 49); fileName[49] = '\0';
+    strncpy(content, data, 499); content[499] = '\0';
 }
-void SourceFile::editFile(char data[])
+void SourceFile::editFile(const char data[])
 {
-    strcpy(content, data);
+    strncpy(content, data, 499); content[499] = '\0';
 }
-char* SourceFile::getFileName()
+char* SourceFile::getFileName() { return fileName; }
+char* SourceFile::getContent() { return content; }
+void SourceFile::showFile() { cout << "\nFile: " << fileName << "\nContent: " << content << endl; }
+Repository::Repository(const char name[], const char user[])
 {
-    return fileName;
-}
-char* SourceFile::getContent()
-{
-    return content;
-}
-void SourceFile::showFile()
-{
-    cout << "\nFile Name: " << fileName;
-    cout << "\nContent: " << content << endl;
-}
-Repository::Repository(char name[], char user[])
-{
-    strcpy(repoName, name);
-    strcpy(owner, user);
+    strncpy(repoName, name, 49); repoName[49] = '\0';
+    strncpy(owner, user, 29); owner[29] = '\0';
     fileCount = 0;
 }
 void Repository::addFile(SourceFile file)
 {
-    if(fileCount < 20)
-    {
-        files[fileCount] = file;
-        fileCount++;
-        cout << "\nFile added successfully.";
-    }
-    else
-        cout << "\nFile limit reached.";
+    if(fileCount >= 20) { cout << "\nFile limit reached."; return; }
+    if(findFile(file.getFileName())) { cout << "\nFile already exists."; return; }
+    files[fileCount++] = file;
+    cout << "\nFile added successfully.";
 }
-void Repository::addFile(char fileName[])
+void Repository::addFile(const char fileName[]) { addFile(SourceFile(fileName)); }
+bool Repository::restoreFile(const char fileName[], const char content[])
 {
-    if(fileCount < 20)
-    {
-        SourceFile file(fileName);
-        files[fileCount] = file;
-        fileCount++;
-        cout << "\nFile added successfully.";
-    }
-    else
-        cout << "\nFile limit reached.";
+    SourceFile* existing = findFile(fileName);
+    if(existing) { existing->editFile(content); return true; }
+    if(fileCount >= 20) return false;
+    files[fileCount++] = SourceFile(fileName, content);
+    return true;
 }
-SourceFile* Repository::findFile(char fileName[])
+SourceFile* Repository::findFile(const char fileName[])
 {
-    int i;
-    for(i = 0; i < fileCount; i++)
-    {
-        if(strcmp(files[i].getFileName(), fileName) == 0)
-            return &files[i];
-    }
+    for(int i = 0; i < fileCount; i++)
+        if(strcmp(files[i].getFileName(), fileName) == 0) return &files[i];
     return 0;
 }
-void Repository::deleteFile(char fileName[])
+void Repository::deleteFile(const char fileName[])
 {
-    int i,j;
-    for(i = 0; i < fileCount; i++)
-    {
+    for(int i = 0; i < fileCount; i++)
         if(strcmp(files[i].getFileName(), fileName) == 0)
         {
-            for(j = i; j < fileCount - 1; j++)
-                files[j] = files[j + 1];
+            for(int j = i; j < fileCount - 1; j++) files[j] = files[j + 1];
             fileCount--;
             cout << "\nFile deleted successfully.";
             return;
         }
-    }
     cout << "\nFile not found.";
 }
 void Repository::showFiles()
 {
-    int i;
-    cout << "\nRepository: " << repoName << endl;
-    if(fileCount == 0)
-    {
-        cout << "No files found.";
-        return;
-    }
-    for(i = 0; i < fileCount; i++)
-        cout << i + 1 << ". " << files[i].getFileName() << endl;
+    cout << "\nRepository: " << repoName << " (" << fileCount << " files)\n";
+    for(int i = 0; i < fileCount; i++) cout << i + 1 << ". " << files[i].getFileName() << endl;
 }
-char* Repository::getRepoName()
+char* Repository::getRepoName() { return repoName; }
+char* Repository::getOwner() { return owner; }
+int Repository::getFileCount() const { return fileCount; }
+SourceFile* Repository::getFile(int index)
 {
-    return repoName;
-}
-char* Repository::getOwner()
-{
-    return owner;
+    return index >= 0 && index < fileCount ? &files[index] : 0;
 }
