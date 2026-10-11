@@ -11,7 +11,7 @@ private:
     char content[500];
     char timeStamp[50];
 public:
-    Commit(char msg[] = "",char user[] = "",char file[] = "",char data[] = "");
+    Commit(const char msg[] = "", const char user[] = "", const char file[] = "", const char data[] = "");
     void showCommit();
     void saveToFile();
     static int getTotalCommits();
