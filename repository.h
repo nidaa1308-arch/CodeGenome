@@ -6,8 +6,8 @@ private:
     char fileName[50];
     char content[500];
 public:
-    SourceFile(char name[] = "", char data[] = "");
-    void editFile(char data[]);
+    SourceFile(const char name[] = "", const char data[] = "");
+    void editFile(const char data[]);
     char* getFileName();
     char* getContent();
     void showFile();
@@ -20,13 +20,16 @@ private:
     SourceFile files[20];
     int fileCount;
 public:
-    Repository(char name[] = "", char user[] = "");
+    Repository(const char name[] = "", const char user[] = "");
     void addFile(SourceFile file);
-    void addFile(char fileName[]);
-    SourceFile* findFile(char fileName[]);
-    void deleteFile(char fileName[]);
+    void addFile(const char fileName[]);
+    bool restoreFile(const char fileName[], const char content[]);
+    SourceFile* findFile(const char fileName[]);
+    void deleteFile(const char fileName[]);
     void showFiles();
     char* getRepoName();
     char* getOwner();
+    int getFileCount() const;
+    SourceFile* getFile(int index);
 };
 #endif
