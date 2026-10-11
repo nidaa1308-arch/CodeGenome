@@ -5,3 +5,5 @@
 repositories.txt
 commits.txt
 data/
+codegenome_repos.dat
+codegenome_versions.dat
