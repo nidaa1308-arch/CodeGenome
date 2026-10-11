@@ -1,0 +1,7 @@
+*.exe
+*.o
+*.obj
+.vscode/
+repositories.txt
+commits.txt
+data/
