@@ -6,9 +6,9 @@ protected:
     char username[30];
     char password[30];
 public:
-    User(char u[] = "", char p[] = "");
+    User(const char u[] = "", const char p[] = "");
     virtual void showRole();
-    bool login(char u[], char p[]);
+    bool login(const char u[], const char p[]);
     char* getUsername();
     virtual bool canCreateRepository();
     virtual ~User();
@@ -16,21 +16,21 @@ public:
 class Admin : public User
 {
 public:
-    Admin(char u[], char p[]);
+    Admin(const char u[], const char p[]);
     void showRole();
     bool canCreateRepository();
 };
 class Student : public User
 {
 public:
-    Student(char u[], char p[]);
+    Student(const char u[], const char p[]);
     void showRole();
     bool canCreateRepository();
 };
 class Collaborator : public User
 {
 public:
-    Collaborator(char u[], char p[]);
+    Collaborator(const char u[], const char p[]);
     void showRole();
     bool canCreateRepository();
 };
