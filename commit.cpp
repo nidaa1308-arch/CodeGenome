@@ -6,7 +6,7 @@
 #include "Commit.h"
 using namespace std;
 int Commit::totalCommits = 0;
-Commit::Commit(char msg[],char user[],char file[],char data[])
+Commit::Commit(const char msg[],const char user[],const char file[],const char data[])
 {
     totalCommits++;
     commitID = totalCommits;
