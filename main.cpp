@@ -5,6 +5,7 @@
 #include "User.h"
 #include "Repository.h"
 #include "Commit.h"
+#include "Storage.h"
 using namespace std;
 Repository repositories[20];
 int repositoryCount = 0;
@@ -141,6 +142,7 @@ void repositoryMenu(User* user)
 }
 int main()
 {
+    repositoryCount = Storage::loadRepositories(repositories, 20);
     char adminUser[] = "admin",adminPass[] = "1234";
     char studentUser[] = "student",studentPass[] = "1234";
     char collabUser[] = "collab",collabPass[] = "1234";
